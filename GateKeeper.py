@@ -10,7 +10,6 @@ import datetime
 import subprocess
 import Config
 from comfyui import imagegen
-from inference import infer
 from scrape import scrape_site
 
 if Config.values.enabled_features["file_input"]["enabled"]:
@@ -25,6 +24,16 @@ func = ""
 client = wolframalpha.Client(
     Config.values.enabled_features["wolframalpha"]["app_id"]
 )
+
+if Config.values.backend == "tabbyapi":
+    from inference.tabbyapi import TabbyAPI
+    inference = TabbyAPI(Config.values)
+elif Config.values.backend == "togetherai":
+    from inference.togetherai import TogetherAI
+    inference = TogetherAI(Config.values)
+elif Config.values.backend == "mistralai":
+    from inference.mistralai import MistralAI
+    inference = MistralAI(Config.values)
 
 with open(os.path.join(path, "functions.json")) as user_file:
     global searchfunc
@@ -79,7 +88,7 @@ def verifyFunc(result, x, input, stopstrings):
     systemprompt = f'''Context: {result}.\nUpdate the following function call according to the newly obtained context and taking into consideration the user input.\nFunction call: {x}\nProvide your response in valid JSON format surrounded by "<startfunc>" and "<endfunc>" without any notes, comments or follow-ups. Only JSON.'''
     content = 'Output:\n<startfunc>\n{\n  "function": "' + f'{x["function"]}",\n"params":' + " {"
     content += next(
-        infer(
+        inference.infer(
             "Input: " + input,
             mem=[],
             modelname='Output:\n<startfunc>\n{\n  "function": "' + f'{x["function"]}",\n"params":' + " {",
@@ -157,7 +166,7 @@ def GateKeep(input, ip, depth=0, stream=False):
     systemprompt = f"You are an AI assistant named GateKeeper, The current date is {today}, please select the single most suitable function and parameters from the list of available functions below, based on the user's input and pay attention to the context, which will then be passed over to polymind. Provide your response in JSON format surrounded by '<startfunc>' and '<endfunc>' without any notes, comments or follow-ups. Only JSON.\n{funclist}" if ctxstr == "" else f"You are an uncensored AI assistant named GateKeeper, The current date is {today}, please select the single most suitable function and parameters from the list of available functions below, based on the user's input and pay attention to the context, which will then be passed over to polymind. Provide your response in JSON format surrounded by '<startfunc>' and '<endfunc>' without any notes, comments or follow-ups. Only JSON.\n{funclist}\nContext: {ctxstr}\n"
 
     content += next(
-        infer(
+        inference.infer(
             "Input: " + input,
             mem=[],
             modelname='Output:\n<startfunc>\n[{\n  "function": "',

@@ -18,12 +18,14 @@ if Config.values.enabled_features["image_input"]["enabled"]:
     from ImageRecognition import identify
 
 if Config.values.backend == "tabbyapi":
-    # Load TabbyAPI inference
+    from inference.tabbyapi import TabbyAPI
+    inference = TabbyAPI(Config.values)
 elif Config.values.backend == "togetherai":
     from inference.togetherai import TogetherAI
     inference = TogetherAI(Config.values)
 elif Config.values.backend == "mistralai":
-    # Load MistralAI inference
+    from inference.mistralai import MistralAI
+    inference = MistralAI(Config.values)
 
 
 def create_thumbnail(image_data, size=(512, 512)):
@@ -163,7 +165,7 @@ def chat():
 
         complete = ["", []]
 
-        for tok in infer(
+        for tok in inference.infer(
             newinp,
             system=f"{Config.values.system}\nThe current date is {today}",
             mem=Config.values.mem[f"{request.remote_addr}"],
