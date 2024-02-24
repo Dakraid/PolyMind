@@ -3,18 +3,25 @@ import random
 import Shared_vars
 import requests
 import traceback
-if Shared_vars.config.compat:
-    from transformers import AutoTokenizer
+if Shared_vars.MISTRAL:
+    from transformers import AutoTokenizer, LlamaTokenizerFast
+
     tokenizer = AutoTokenizer.from_pretrained(Shared_vars.config.tokenmodel)
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
 
 API_ENDPOINT_URI = Shared_vars.API_ENDPOINT_URI
 API_KEY = Shared_vars.API_KEY
 TABBY = Shared_vars.TABBY
+MISTRAL = Shared_vars.MISTRAL
 if TABBY:
     API_ENDPOINT_URI += "v1/completions"
 else:
     API_ENDPOINT_URI += "completion"
 
+model = "mistral-medium"
+
+client = MistralClient(api_key=API_KEY)
 
 def tokenize(input):
     if Shared_vars.config.compat:
@@ -40,6 +47,11 @@ def tokenize(input):
                 timeout=360,
             )
             return request.json()
+        elif MISTRAL:
+            mistral_tokenizer = LlamaTokenizerFast.from_pretrained("hf-internal-testing/llama-tokenizer")
+            encoded_input = mistral_tokenizer.encode(input)
+            tokens = tokenizer.convert_ids_to_tokens(encoded_input)
+            return {"length": len(encoded_input), "tokens": tokens}
         else:
             payload = {"content": input}
             request = requests.post(
@@ -75,25 +87,18 @@ def infer(
 ):
     content = ""
     memory = mem
-    prompt = (
-        f"{bsysep}\n"
-        + system
-        + f"\n{esysep}\n"
-        + few_shot
-        + "".join(memory)
-        + f"\n{beginsep} {username} {prmpt}{endsep} {modelname}"
-    )
-    # This feels wrong.
-
-    print(f"Token count: {tokenize(prompt)['length']}")
-    removal = 0
-    while (
-        tokenize(prompt)["length"] + max_tokens / 2 > Shared_vars.config.ctxlen
-        and len(memory) > 2
-    ):
-        print(f"Removing old memories: Pass:{removal}")
-        removal += 1
-        memory = memory[removal:]
+    if MISTRAL:
+        sys_prompt = (
+            f"{system}\n"
+            + "Following text are memories available to you:\n"
+            + "".join(memory)
+        )
+        user_prompt = (
+            f"{prmpt}\n"
+            + "Complete the following JSON:\n"
+            + modelname
+        )
+    else:
         prompt = (
             f"{bsysep}\n"
             + system
@@ -102,46 +107,102 @@ def infer(
             + "".join(memory)
             + f"\n{beginsep} {username} {prmpt} {endsep} {modelname}"
         )
-    stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", Shared_vars.config.llm_parameters["bsysep"], Shared_vars.config.llm_parameters["esysep"], Shared_vars.config.llm_parameters["beginsep"], Shared_vars.config.llm_parameters["endsep"]]
-    payload = {
-        "prompt": prompt,
-        "model": "gpt-3.5-turbo-instruct",
-        "max_tokens": max_tokens,
-        "n_predict": max_tokens,
-        "min_p": min_p,
-        "repetition_penalty": reppenalty,
-        "stream": True,
-        "seed": random.randint(
-            1000002406736107, 3778562406736107
-        ),  # Was acting weird without this
-        "top_k": top_k,
-        "top_p": top_p,
-        "stop": [beginsep] +  stopstrings,
-        "temperature": temperature,
-    }
-    if min_temp != 0 and max_temp != 0:
-        payload["min_temp"] = min_temp
-        payload["max_temp"] = max_temp
-    request = requests.post(
-        API_ENDPOINT_URI,
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}",
-        },
-        json=payload,
-        stream=True,
-        timeout=360,
-    )
+    # This feels wrong.
 
-    if request.encoding is None:
-        request.encoding = "utf-8"
-    prevtoken = ""
-    repetitioncount = 0
-    for line in request.iter_lines(decode_unicode=True):
-        if line:
-            if TABBY:
+    if MISTRAL:
+        print(f"System Token count: {tokenize(sys_prompt)['length']}")
+        print(f"User Token count: {tokenize(user_prompt)['length']}")
+        removal = 0
+        while (
+            tokenize(sys_prompt)["length"] + max_tokens / 2 > Shared_vars.config.ctxlen
+            and len(memory) > 2
+        ):
+            print(f"Removing old memories: Pass:{removal}")
+            removal += 1
+            memory = memory[removal:]
+            sys_prompt = (
+                f"{bsysep}\n"
+                + system
+                + f"\n{esysep}\n"
+                + few_shot
+                + "".join(memory)
+                + f"\n{beginsep} {username} {prmpt} {endsep} {modelname}"
+            )
+    else:
+        print(f"Token count: {tokenize(prompt)['length']}")
+        removal = 0
+        while (
+            tokenize(prompt)["length"] + max_tokens / 2 > Shared_vars.config.ctxlen
+            and len(memory) > 2
+        ):
+            print(f"Removing old memories: Pass:{removal}")
+            removal += 1
+            memory = memory[removal:]
+            prompt = (
+                f"{bsysep}\n"
+                + system
+                + f"\n{esysep}\n"
+                + few_shot
+                + "".join(memory)
+                + f"\n{beginsep} {username} {prmpt} {endsep} {modelname}"
+            )
+    stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", Shared_vars.config.llm_parameters["bsysep"], Shared_vars.config.llm_parameters["esysep"], Shared_vars.config.llm_parameters["beginsep"], Shared_vars.config.llm_parameters["endsep"]]
+    if not MISTRAL:
+        payload = {
+            "prompt": prompt,
+            "model": "gpt-3.5-turbo-instruct",
+            "max_tokens": max_tokens,
+            "n_predict": max_tokens,
+            "min_p": min_p,
+            "repetition_penalty": reppenalty,
+            "stream": True,
+            "seed": random.randint(
+                1000002406736107, 3778562406736107
+            ),  # Was acting weird without this
+            "top_k": top_k,
+            "top_p": top_p,
+            "stop": [beginsep] + stopstrings,
+            "temperature": temperature,
+        }
+        if min_temp != 0 and max_temp != 0:
+            payload["min_temp"] = min_temp
+            payload["max_temp"] = max_temp
+
+    if MISTRAL:
+        messages = [
+            ChatMessage(role="system", content=sys_prompt),
+            ChatMessage(role="user", content=user_prompt)
+        ]
+        chat_response = client.chat(
+            model=model,
+            messages=messages,
+        )
+        for choices in chat_response.choices:
+            if choices.message.role == "assistant":
                 try:
+                    content += choices.message.content
+                except Exception:
+                    print(traceback.format_exc())
+    else:
+        request = requests.post(
+            API_ENDPOINT_URI,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {API_KEY}",
+            },
+            json=payload,
+            stream=True,
+            timeout=360,
+        )
+
+        if request.encoding is None:
+            request.encoding = "utf-8"
+        prevtoken = ""
+        repetitioncount = 0
+        for line in request.iter_lines(decode_unicode=True):
+            if line:
+                if TABBY:
                     if " ".join(line.split(" ")[1:]) != "[DONE]":
                         if (
                             prevtoken
@@ -171,37 +232,38 @@ def infer(
                         content += json.loads(" ".join(line.split(" ")[1:]))["choices"][0][
                             "text"
                         ]
-                except Exception:
-                    pass
-            else:
-                try:
-                    if "data" in line:
-                        print(
-                            json.loads(" ".join(line.split(" ")[1:]))["content"],
-                            end="",
-                            flush=True,
-                        )
-                        if (
-                            prevtoken
-                            == json.loads(" ".join(line.split(" ")[1:]))["content"]
-                        ):
-                            repetitioncount += 1
-                        if repetitioncount > 25:
-                            print("Stopping loop due to repetition")
-                            break
-                        else:
-                            repetitioncount = 0
-                        prevtoken = json.loads(" ".join(line.split(" ")[1:]))["content"]
-                        if streamresp:
-                            yield json.loads(" ".join(line.split(" ")[1:]))["content"]
+                else:
+                    try:
+                        if "data" in line:
+                            print(
+                                json.loads(" ".join(line.split(" ")[1:]))["content"],
+                                end="",
+                                flush=True,
+                            )
+                            if (
+                                prevtoken
+                                == json.loads(" ".join(line.split(" ")[1:]))["content"]
+                            ):
+                                repetitioncount += 1
+                            if repetitioncount > 25:
+                                print("Stopping loop due to repetition")
+                                break
+                            else:
+                                repetitioncount = 0
+                            prevtoken = json.loads(" ".join(line.split(" ")[1:]))["content"]
+                            if streamresp:
+                                yield json.loads(" ".join(line.split(" ")[1:]))["content"]
 
-                        content += json.loads(" ".join(line.split(" ")[1:]))["content"]
+                            content += json.loads(" ".join(line.split(" ")[1:]))["content"]
 
-                except Exception:
-                    print(traceback.format_exc())
+                    except Exception:
+                        print(traceback.format_exc())
     print("")
     memory.append(
         f"\n{beginsep} {username} {prmpt.strip()}\n{endsep} {modelname} {content.strip()}{eos}"
     )
 
-    yield [content, memory, tokenize(prompt)["length"]]
+    if MISTRAL:
+        yield [content, memory, tokenize(sys_prompt)["length"] + tokenize(user_prompt)["length"]]
+    else:
+        yield [content, memory, tokenize(prompt)["length"]]

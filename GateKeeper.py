@@ -176,7 +176,6 @@ def GateKeep(input, ip, depth=0, stream=False):
         )
     )[0]
 
-
     try:
         if "<startfunc>" in content:
             content = content.split("<startfunc>")[1]
@@ -185,10 +184,12 @@ def GateKeep(input, ip, depth=0, stream=False):
             .replace("\\_", "_")
             .replace("}<", "}")
             .replace("<startfunc>", "")
+            .replace("<endfunc>", "")
             .replace("</", "")
             .replace("<", "")
             .replace("False", "false")
             .replace("True", "true")
+            .replace("\"\"", "\"")
         )
         print(content)
         result = ""
@@ -239,7 +240,7 @@ def Util(rsp, ip, depth):
         if "params" in rsp
         else (rsp["parameters"] if "parameters" in rsp else rsp)
     )
-    
+
     if rsp["function"] == "acknowledge":
         return "null"
 

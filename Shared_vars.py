@@ -41,7 +41,7 @@ class Config:
         except KeyError:
             print(
                 "\033[93m WARN: Config is missing compatibility_mode, Update your config to comply with the latest example config. \033[0m"
-            )   
+            )
         print("Loaded config")
 
 
@@ -55,6 +55,7 @@ API_ENDPOINT_URI = (
 API_KEY = config.api_key
 
 TABBY = True if config.backend == "tabbyapi" else False
+MISTRAL = True if config.backend == "mistralai" else False
 address = "0.0.0.0" if config.listen else "127.0.0.1"
 loadedfile = {}
 uploads = {}

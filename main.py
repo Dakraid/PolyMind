@@ -271,7 +271,7 @@ def upload_file():
                     "ip": f"{request.remote_addr}",
                 }
             result = identify(file_content.split(',')[1])
-            
+
             Shared_vars.mem[f"{request.remote_addr}"].append(
                 f"\n{Shared_vars.config.llm_parameters['beginsep']} user: {result} {Shared_vars.config.llm_parameters['endsep']}"
             )
