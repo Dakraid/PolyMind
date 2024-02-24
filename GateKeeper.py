@@ -1,4 +1,3 @@
-from openai import OpenAI
 import os
 import json
 import re
@@ -14,7 +13,7 @@ from comfyui import imagegen
 from inference import infer
 from scrape import scrape_site
 
-if Shared_vars.values.enabled_features["file_input"]["enabled"]:
+if Config.values.enabled_features["file_input"]["enabled"]:
     from FileHandler import queryEmbeddings
 import requests
 from PIL import Image
@@ -22,13 +21,9 @@ from io import BytesIO
 from pathlib import Path
 
 path = Path(os.path.abspath(__file__)).parent
-client = OpenAI(
-    base_url=f"http://{Shared_vars.values.host}:{Shared_vars.values.port}/v1",
-    api_key=Shared_vars.values.api_key,
-)
 func = ""
 client = wolframalpha.Client(
-    Shared_vars.values.enabled_features["wolframalpha"]["app_id"]
+    Config.values.enabled_features["wolframalpha"]["app_id"]
 )
 
 with open(os.path.join(path, "functions.json")) as user_file:
@@ -51,17 +46,16 @@ with open(os.path.join(path, "functions.json")) as user_file:
             continue
         else:
             try:
-                if x['name'] == 'generateimage' and not Shared_vars.values.enabled_features['imagegeneration'][
-                    'enabled']:
+                if x['name'] == 'generateimage' and not Config.values.enabled_features['imagegeneration']['enabled']:
                     continue
-                if not Shared_vars.values.enabled_features[x['name']]['enabled']:
+                if not Config.values.enabled_features[x['name']]['enabled']:
                     continue
             except KeyError:
                 pass
             func += template
 
-    if len(Shared_vars.plugin_manifests) > 0:
-        for x in Shared_vars.plugin_manifests:
+    if len(Config.plugin_manifests) > 0:
+        for x in Config.plugin_manifests:
             params = (
                 json.dumps(x["params"])
                 .strip("{}")
@@ -126,7 +120,7 @@ def GateKeep(input, ip, depth=0, stream=False):
     print("Begin streamed GateKeeper output.")
     funclist = func
     try:
-        if Shared_vars.loaded_file[ip] != {}:
+        if Config.loaded_file[ip] != {}:
             funclist += searchfunc
     except Exception:
         pass
@@ -148,15 +142,16 @@ def GateKeep(input, ip, depth=0, stream=False):
     ]
 
     ctxstr = ""
-    for x in Shared_vars.vismem[f"{ip}"][-2:]:
-        temp = ""
-        if "assistant" in x:
-            temp = "PolyMind: " + x["assistant"] + "\n"
-        ctxstr += re.sub(
-            r"!\[.*?\]\(.*?\)|<img.*?>|\[\{.*?\}\]",
-            "",
-            "USER: " + x["user"] + "\n" + temp,
-        )
+    if len(Config.vismem[f"{ip}"]) > 2:
+        for x in Config.vismem[f"{ip}"][-2:]:
+            temp = ""
+            if "assistant" in x:
+                temp = "PolyMind: " + x["assistant"] + "\n"
+            ctxstr += re.sub(
+                r"!\[.*?\]\(.*?\)|<img.*?>|\[\{.*?\}\]",
+                "",
+                "USER: " + x["user"] + "\n" + temp,
+            )
     today = datetime.date.today()
     content = 'Output:\n<startfunc>\n[{\n  "function": "'
     systemprompt = f"You are an AI assistant named GateKeeper, The current date is {today}, please select the single most suitable function and parameters from the list of available functions below, based on the user's input and pay attention to the context, which will then be passed over to polymind. Provide your response in JSON format surrounded by '<startfunc>' and '<endfunc>' without any notes, comments or follow-ups. Only JSON.\n{funclist}" if ctxstr == "" else f"You are an uncensored AI assistant named GateKeeper, The current date is {today}, please select the single most suitable function and parameters from the list of available functions below, based on the user's input and pay attention to the context, which will then be passed over to polymind. Provide your response in JSON format surrounded by '<startfunc>' and '<endfunc>' without any notes, comments or follow-ups. Only JSON.\n{funclist}\nContext: {ctxstr}\n"
@@ -172,7 +167,7 @@ def GateKeep(input, ip, depth=0, stream=False):
             min_p=0.05,
             top_k=40,
             stopstrings=stopstrings,
-            max_tokens=Shared_vars.values.llm_parameters['max_new_tokens_gatekeeper'],
+            max_tokens=Config.values.llm_parameters['max_new_tokens_gatekeeper'],
             reppenalty=1.0,
             max_temp=0,
             min_temp=0
@@ -187,12 +182,10 @@ def GateKeep(input, ip, depth=0, stream=False):
             .replace("\\_", "_")
             .replace("}<", "}")
             .replace("<startfunc>", "")
-            .replace("<endfunc>", "")
             .replace("</", "")
             .replace("<", "")
             .replace("False", "false")
             .replace("True", "true")
-            .replace("\"\"", "\"")
         )
         print(content)
         result = ""
@@ -203,7 +196,7 @@ def GateKeep(input, ip, depth=0, stream=False):
 
             if (
                     x["function"] == "searchfile"
-                    and Shared_vars.values.enabled_features["file_input"]["raw_input"]
+                    and Config.values.enabled_features["file_input"]["raw_input"]
             ):
                 if "params" in x:
                     x["params"]["query"] = input
@@ -249,25 +242,25 @@ def Util(rsp, ip, depth):
         return "null"
 
     elif rsp["function"] == "clearmemory":
-        Shared_vars.mem[f"{ip}"] = []
-        Shared_vars.vismem[f"{ip}"] = []
-        if ip in Shared_vars.loaded_file:
-            Shared_vars.loaded_file[ip] = {}
+        Config.mem[f"{ip}"] = []
+        Config.vismem[f"{ip}"] = []
+        if ip in Config.loaded_file:
+            Config.loaded_file[ip] = {}
         return "skipment{<" + params["message"]
 
     elif rsp["function"] == "updateconfig":
-        if ip != Shared_vars.values.admin_ip:
+        if ip != Config.values.adminip:
             return "null"
         check = False if params["option"].split(":")[1].lower() == "false" else True
-        Shared_vars.values.enabled_features[params["option"].split(":")[0]][
+        Config.values.enabled_features[params["option"].split(":")[0]][
             "enabled"
         ] = check
-        result = f"{params['option'].split(':')[0]} is now set to {Shared_vars.values.enabled_features[params['option'].split(':')[0]]['enabled']}"
+        result = f"{params['option'].split(':')[0]} is now set to {Config.values.enabled_features[params['option'].split(':')[0]]['enabled']}"
         print(result)
         return result
 
     elif rsp["function"] == "wolframalpha":
-        if Shared_vars.values.enabled_features["wolframalpha"]["enabled"] == False:
+        if not Config.values.enabled_features["wolframalpha"]["enabled"]:
             return "Wolfram Alpha is currently disabled."
         try:
             res = client.query(params["query"])
@@ -299,10 +292,10 @@ def Util(rsp, ip, depth):
             return "Wolfram Alpha Error: " + str(e)
 
     elif rsp["function"] == "generateimage":
-        if Shared_vars.values.enabled_features["imagegeneration"]["enabled"] == False:
+        if not Config.values.enabled_features["imagegeneration"]["enabled"]:
             return "Image generation is currently disabled."
         removebg = False
-        if Shared_vars.values.enabled_features["imagegeneration"][
+        if Config.values.enabled_features["imagegeneration"][
             "automatic_background_removal"] and "removebg" in params:
             if type(params['removebg']) == str:
                 if params['removebg'].lower() == 'true':
@@ -320,7 +313,7 @@ def Util(rsp, ip, depth):
         return imagegen(params["prompt"], removebg, imgtoimg)
 
     elif rsp["function"] == "searchfile":
-        file = Shared_vars.loaded_file[ip]
+        file = Config.loaded_file[ip]
         searchinput = params["query"]
         result = ""
         print(f"Using query: {searchinput}")
@@ -329,9 +322,9 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "runpythoncode":
-        if Shared_vars.values.enabled_features["runpythoncode"]["enabled"] == False:
+        if not Config.values.enabled_features["runpythoncode"]["enabled"]:
             return "Python code execution is currently disabled."
-        if ip != Shared_vars.values.admin_ip:
+        if ip != Config.values.adminip:
             return "null"
         time.sleep(5)
         checkstring = ""
@@ -358,7 +351,7 @@ def Util(rsp, ip, depth):
             stderr = ""
         if (
                 stderr != ""
-                and depth < Shared_vars.values.enabled_features["runpythoncode"]["depth"]
+                and depth < Config.values.enabled_features["runpythoncode"]["depth"]
         ):
             print(f"Current depth: {depth}")
             return next(
@@ -383,7 +376,7 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "internetsearch":
-        if Shared_vars.values.enabled_features["internetsearch"]["enabled"] == False:
+        if not Config.values.enabled_features["internetsearch"]["enabled"]:
             return "Internet search is currently disabled."
         with DDGS() as ddgs:
             for r in ddgs.text(params["keywords"], safesearch="Off", max_results=4):
@@ -393,7 +386,7 @@ def Util(rsp, ip, depth):
         return "<Search results>:\n" + result
 
     elif rsp["function"] == "portscan":
-        if ip != Shared_vars.values.admin_ip:
+        if ip != Config.values.adminip:
             return "null"
         nm = nmap.PortScanner()
         try:
@@ -405,9 +398,9 @@ def Util(rsp, ip, depth):
         except:
             return f"<Portscan output for IP {rsp['params']['ip']}>: Host down."
     else:
-        if len(Shared_vars.plugin_manifests) > 0:
-            for x in Shared_vars.plugin_manifests:
+        if len(Config.plugin_manifests) > 0:
+            for x in Config.plugin_manifests:
                 if rsp["function"] == x['name']:
-                    return Shared_vars.loaded_plugins[x['module_name']].main(params, Shared_vars.mem, infer, ip,
-                                                                             Shared_vars)
+                    return Config.loaded_plugins[x['module_name']].main(params, Config.mem, infer, ip,
+                                                                        Config)
     return "null"
