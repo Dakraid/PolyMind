@@ -9,12 +9,12 @@ from duckduckgo_search import DDGS
 import nmap
 import datetime
 import subprocess
-import Shared_vars
+import Config
 from comfyui import imagegen
 from inference import infer
 from scrape import scrape_site
 
-if Shared_vars.config.enabled_features["file_input"]["enabled"]:
+if Shared_vars.values.enabled_features["file_input"]["enabled"]:
     from FileHandler import queryEmbeddings
 import requests
 from PIL import Image
@@ -23,12 +23,12 @@ from pathlib import Path
 
 path = Path(os.path.abspath(__file__)).parent
 client = OpenAI(
-    base_url=f"http://{Shared_vars.config.host}:{Shared_vars.config.port}/v1",
-    api_key=Shared_vars.config.api_key,
+    base_url=f"http://{Shared_vars.values.host}:{Shared_vars.values.port}/v1",
+    api_key=Shared_vars.values.api_key,
 )
 func = ""
 client = wolframalpha.Client(
-    Shared_vars.config.enabled_features["wolframalpha"]["app_id"]
+    Shared_vars.values.enabled_features["wolframalpha"]["app_id"]
 )
 
 with open(os.path.join(path, "functions.json")) as user_file:
@@ -50,10 +50,11 @@ with open(os.path.join(path, "functions.json")) as user_file:
             searchfunc = template
             continue
         else:
-            try: 
-                if x['name'] == 'generateimage' and not Shared_vars.config.enabled_features['imagegeneration']['enabled']:
+            try:
+                if x['name'] == 'generateimage' and not Shared_vars.values.enabled_features['imagegeneration'][
+                    'enabled']:
                     continue
-                if not Shared_vars.config.enabled_features[x['name']]['enabled']:
+                if not Shared_vars.values.enabled_features[x['name']]['enabled']:
                     continue
             except KeyError:
                 pass
@@ -70,7 +71,7 @@ with open(os.path.join(path, "functions.json")) as user_file:
             template = f"""\n{x['name']}:
             description: {x['description']}
             params:
-                {params}"""            
+                {params}"""
             func += template
 
 
@@ -79,14 +80,15 @@ def get_image_size(url):
     img = Image.open(BytesIO(response.content))
     return img.size[0] + img.size[1]
 
+
 def verifyFunc(result, x, input, stopstrings):
-    systemprompt=f'''Context: {result}.\nUpdate the following function call according to the newly obtained context and taking into consideration the user input.\nFunction call: {x}\nProvide your response in valid JSON format surrounded by "<startfunc>" and "<endfunc>" without any notes, comments or follow-ups. Only JSON.'''
+    systemprompt = f'''Context: {result}.\nUpdate the following function call according to the newly obtained context and taking into consideration the user input.\nFunction call: {x}\nProvide your response in valid JSON format surrounded by "<startfunc>" and "<endfunc>" without any notes, comments or follow-ups. Only JSON.'''
     content = 'Output:\n<startfunc>\n{\n  "function": "' + f'{x["function"]}",\n"params":' + " {"
     content += next(
         infer(
             "Input: " + input,
             mem=[],
-            modelname='Output:\n<startfunc>\n{\n  "function": "' + f'{x["function"]}",\n"params":' + " {" ,
+            modelname='Output:\n<startfunc>\n{\n  "function": "' + f'{x["function"]}",\n"params":' + " {",
             system=systemprompt,
             temperature=0.1,
             top_p=0.1,
@@ -118,31 +120,32 @@ def verifyFunc(result, x, input, stopstrings):
         return x
     return json.loads(content)
 
+
 def GateKeep(input, ip, depth=0, stream=False):
     content = ""
     print("Begin streamed GateKeeper output.")
     funclist = func
     try:
-        if Shared_vars.loadedfile[ip] != {}:
+        if Shared_vars.loaded_file[ip] != {}:
             funclist += searchfunc
     except Exception:
         pass
     stopstrings = [
-            "Input: ",
-            "[INST]",
-            "[/INST]",
-            "```",
-            "</s>",
-            "user:",
-            "polymind:",
-            "Polymind:",
-            "<</SYS>>",
-            "[System Message]",
-            "endfunc",
-            "<endfunc>",
-            "}<",
-            "</startfunc>"
-        ]
+        "Input: ",
+        "[INST]",
+        "[/INST]",
+        "```",
+        "</s>",
+        "user:",
+        "polymind:",
+        "Polymind:",
+        "<</SYS>>",
+        "[System Message]",
+        "endfunc",
+        "<endfunc>",
+        "}<",
+        "</startfunc>"
+    ]
 
     ctxstr = ""
     for x in Shared_vars.vismem[f"{ip}"][-2:]:
@@ -169,7 +172,7 @@ def GateKeep(input, ip, depth=0, stream=False):
             min_p=0.05,
             top_k=40,
             stopstrings=stopstrings,
-            max_tokens=Shared_vars.config.llm_parameters['max_new_tokens_gatekeeper'],
+            max_tokens=Shared_vars.values.llm_parameters['max_new_tokens_gatekeeper'],
             reppenalty=1.0,
             max_temp=0,
             min_temp=0
@@ -199,8 +202,8 @@ def GateKeep(input, ip, depth=0, stream=False):
                 yield {"result": x, "type": "func"}
 
             if (
-                x["function"] == "searchfile"
-                and Shared_vars.config.enabled_features["file_input"]["raw_input"]
+                    x["function"] == "searchfile"
+                    and Shared_vars.values.enabled_features["file_input"]["raw_input"]
             ):
                 if "params" in x:
                     x["params"]["query"] = input
@@ -226,6 +229,7 @@ def GateKeep(input, ip, depth=0, stream=False):
         else:
             return "null"
 
+
 def Util(rsp, ip, depth):
     result = ""
 
@@ -247,23 +251,23 @@ def Util(rsp, ip, depth):
     elif rsp["function"] == "clearmemory":
         Shared_vars.mem[f"{ip}"] = []
         Shared_vars.vismem[f"{ip}"] = []
-        if ip in Shared_vars.loadedfile:
-            Shared_vars.loadedfile[ip] = {}
+        if ip in Shared_vars.loaded_file:
+            Shared_vars.loaded_file[ip] = {}
         return "skipment{<" + params["message"]
 
     elif rsp["function"] == "updateconfig":
-        if ip != Shared_vars.config.adminip:
+        if ip != Shared_vars.values.admin_ip:
             return "null"
         check = False if params["option"].split(":")[1].lower() == "false" else True
-        Shared_vars.config.enabled_features[params["option"].split(":")[0]][
+        Shared_vars.values.enabled_features[params["option"].split(":")[0]][
             "enabled"
         ] = check
-        result = f"{params['option'].split(':')[0]} is now set to {Shared_vars.config.enabled_features[params['option'].split(':')[0]]['enabled']}"
+        result = f"{params['option'].split(':')[0]} is now set to {Shared_vars.values.enabled_features[params['option'].split(':')[0]]['enabled']}"
         print(result)
         return result
 
     elif rsp["function"] == "wolframalpha":
-        if Shared_vars.config.enabled_features["wolframalpha"]["enabled"] == False:
+        if Shared_vars.values.enabled_features["wolframalpha"]["enabled"] == False:
             return "Wolfram Alpha is currently disabled."
         try:
             res = client.query(params["query"])
@@ -272,13 +276,13 @@ def Util(rsp, ip, depth):
             for pod in res.pods:
                 for sub in pod.subpods:
                     if (
-                        "plot"
-                        or "image" in sub.img["@alt"].lower()
-                        and "plot |" not in sub.img["@alt"].lower()
+                            "plot"
+                            or "image" in sub.img["@alt"].lower()
+                            and "plot |" not in sub.img["@alt"].lower()
                     ) and get_image_size(sub.img["@src"]) > 350:
                         results += (
-                            f'<img src="{sub.img["@src"]}" alt="{sub.img["@alt"]}"/>'
-                            + "\n"
+                                f'<img src="{sub.img["@src"]}" alt="{sub.img["@alt"]}"/>'
+                                + "\n"
                         )
                         checkimage = True
                     elif sub.plaintext:
@@ -295,10 +299,11 @@ def Util(rsp, ip, depth):
             return "Wolfram Alpha Error: " + str(e)
 
     elif rsp["function"] == "generateimage":
-        if Shared_vars.config.enabled_features["imagegeneration"]["enabled"] == False:
+        if Shared_vars.values.enabled_features["imagegeneration"]["enabled"] == False:
             return "Image generation is currently disabled."
         removebg = False
-        if Shared_vars.config.enabled_features["imagegeneration"]["automatic_background_removal"] and "removebg" in params:
+        if Shared_vars.values.enabled_features["imagegeneration"][
+            "automatic_background_removal"] and "removebg" in params:
             if type(params['removebg']) == str:
                 if params['removebg'].lower() == 'true':
                     removebg = True
@@ -315,7 +320,7 @@ def Util(rsp, ip, depth):
         return imagegen(params["prompt"], removebg, imgtoimg)
 
     elif rsp["function"] == "searchfile":
-        file = Shared_vars.loadedfile[ip]
+        file = Shared_vars.loaded_file[ip]
         searchinput = params["query"]
         result = ""
         print(f"Using query: {searchinput}")
@@ -324,15 +329,15 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "runpythoncode":
-        if Shared_vars.config.enabled_features["runpythoncode"]["enabled"] == False:
+        if Shared_vars.values.enabled_features["runpythoncode"]["enabled"] == False:
             return "Python code execution is currently disabled."
-        if ip != Shared_vars.config.adminip:
+        if ip != Shared_vars.values.admin_ip:
             return "null"
         time.sleep(5)
         checkstring = ""
         runcode = ''
         if 'code' in params:
-            runcode = params['code'] 
+            runcode = params['code']
         else:
             runcode = params
         runcode = "import warnings\nwarnings.filterwarnings('ignore')\n" + runcode
@@ -352,8 +357,8 @@ def Util(rsp, ip, depth):
         if output.returncode == 0 and "yfinance" in runcode:
             stderr = ""
         if (
-            stderr != ""
-            and depth < Shared_vars.config.enabled_features["runpythoncode"]["depth"]
+                stderr != ""
+                and depth < Shared_vars.values.enabled_features["runpythoncode"]["depth"]
         ):
             print(f"Current depth: {depth}")
             return next(
@@ -378,7 +383,7 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "internetsearch":
-        if Shared_vars.config.enabled_features["internetsearch"]["enabled"] == False:
+        if Shared_vars.values.enabled_features["internetsearch"]["enabled"] == False:
             return "Internet search is currently disabled."
         with DDGS() as ddgs:
             for r in ddgs.text(params["keywords"], safesearch="Off", max_results=4):
@@ -388,7 +393,7 @@ def Util(rsp, ip, depth):
         return "<Search results>:\n" + result
 
     elif rsp["function"] == "portscan":
-        if ip != Shared_vars.config.adminip:
+        if ip != Shared_vars.values.admin_ip:
             return "null"
         nm = nmap.PortScanner()
         try:
@@ -403,5 +408,6 @@ def Util(rsp, ip, depth):
         if len(Shared_vars.plugin_manifests) > 0:
             for x in Shared_vars.plugin_manifests:
                 if rsp["function"] == x['name']:
-                    return Shared_vars.loadedplugins[x['module_name']].main(params, Shared_vars.mem, infer, ip, Shared_vars)
+                    return Shared_vars.loaded_plugins[x['module_name']].main(params, Shared_vars.mem, infer, ip,
+                                                                             Shared_vars)
     return "null"

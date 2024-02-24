@@ -1,13 +1,13 @@
 from urllib.request import Request, urlopen
 from curl_cffi import requests
-import Shared_vars
+import Config
 from PyPDF2 import PdfReader
 import io
 from trafilatura import extract
-if Shared_vars.config.compat:
+if Shared_vars.values.compat:
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained(Shared_vars.config.tokenmodel)
-API_ENDPOINT_URI = Shared_vars.API_ENDPOINT_URI
+    tokenizer = AutoTokenizer.from_pretrained(Shared_vars.values.token_model)
+API_ENDPOINT_URI = Shared_vars.api_endpoint_uri
 
 if Shared_vars.TABBY:
     API_ENDPOINT_URI += "v1/completions"
@@ -27,7 +27,7 @@ def get_pdf_from_url(url):
 
 
 def tokenize(input):
-    if Shared_vars.config.compat:
+    if Shared_vars.values.compat:
         encoded_input = tokenizer.encode(input, return_tensors=None)
         return len(encoded_input), encoded_input
     else:

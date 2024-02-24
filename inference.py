@@ -1,16 +1,15 @@
 import json
 import random
-import Shared_vars
+import Config
 import requests
 import traceback
 if Shared_vars.MISTRAL:
     from transformers import AutoTokenizer, LlamaTokenizerFast
+    tokenizer = AutoTokenizer.from_pretrained(Shared_vars.values.token_model)
+    from mistralai.client import MistralClient
+    from mistralai.models.chat_completion import ChatMessage
 
-    tokenizer = AutoTokenizer.from_pretrained(Shared_vars.config.tokenmodel)
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
-
-API_ENDPOINT_URI = Shared_vars.API_ENDPOINT_URI
+API_ENDPOINT_URI = Shared_vars.api_endpoint_uri
 API_KEY = Shared_vars.API_KEY
 TABBY = Shared_vars.TABBY
 MISTRAL = Shared_vars.MISTRAL
@@ -19,12 +18,12 @@ if TABBY:
 else:
     API_ENDPOINT_URI += "completion"
 
-model = "mistral-medium"
-
-client = MistralClient(api_key=API_KEY)
+if MISTRAL:
+    model = "mistral-medium"
+    client = MistralClient(api_key=API_KEY)
 
 def tokenize(input):
-    if Shared_vars.config.compat:
+    if Shared_vars.values.compat:
         encoded_input = tokenizer.encode(input, return_tensors=None)
         tokens = tokenizer.convert_ids_to_tokens(encoded_input)
         return {"length": len(encoded_input), "tokens": tokens}
@@ -67,23 +66,23 @@ def infer(
     system="",
     temperature=0.7,
     username="",
-    bsysep=Shared_vars.config.llm_parameters["bsysep"],
-    esysep=Shared_vars.config.llm_parameters["esysep"],
+    bsysep=Shared_vars.values.llm_parameters["bsysep"],
+    esysep=Shared_vars.values.llm_parameters["esysep"],
     modelname="",
     eos="</s><s>",
-    beginsep=Shared_vars.config.llm_parameters["beginsep"],
-    endsep=Shared_vars.config.llm_parameters["endsep"],
+    beginsep=Shared_vars.values.llm_parameters["beginsep"],
+    endsep=Shared_vars.values.llm_parameters["endsep"],
     mem=[],
     few_shot="",
     max_tokens=250,
     stopstrings=[],
     top_p=1.0,
-    top_k=Shared_vars.config.llm_parameters["top_k"],
+    top_k=Shared_vars.values.llm_parameters["top_k"],
     min_p=0.0,
     streamresp=False,
-    reppenalty=Shared_vars.config.llm_parameters["repetition_penalty"] if "repetition_penalty" in Shared_vars.config.llm_parameters else 1.0,
-    max_temp=Shared_vars.config.llm_parameters["max_temp"] if "max_temp" in Shared_vars.config.llm_parameters else 0,
-    min_temp=Shared_vars.config.llm_parameters["min_temp"] if "min_temp" in Shared_vars.config.llm_parameters else 0
+    reppenalty=Shared_vars.values.llm_parameters["repetition_penalty"] if "repetition_penalty" in Shared_vars.values.llm_parameters else 1.0,
+    max_temp=Shared_vars.values.llm_parameters["max_temp"] if "max_temp" in Shared_vars.values.llm_parameters else 0,
+    min_temp=Shared_vars.values.llm_parameters["min_temp"] if "min_temp" in Shared_vars.values.llm_parameters else 0
 ):
     content = ""
     memory = mem
@@ -114,7 +113,7 @@ def infer(
         print(f"User Token count: {tokenize(user_prompt)['length']}")
         removal = 0
         while (
-            tokenize(sys_prompt)["length"] + max_tokens / 2 > Shared_vars.config.ctxlen
+            tokenize(sys_prompt)["length"] + max_tokens / 2 > Shared_vars.values.ctx_length
             and len(memory) > 2
         ):
             print(f"Removing old memories: Pass:{removal}")
@@ -132,7 +131,7 @@ def infer(
         print(f"Token count: {tokenize(prompt)['length']}")
         removal = 0
         while (
-            tokenize(prompt)["length"] + max_tokens / 2 > Shared_vars.config.ctxlen
+            tokenize(prompt)["length"] + max_tokens / 2 > Shared_vars.values.ctx_length
             and len(memory) > 2
         ):
             print(f"Removing old memories: Pass:{removal}")
@@ -146,7 +145,7 @@ def infer(
                 + "".join(memory)
                 + f"\n{beginsep} {username} {prmpt} {endsep} {modelname}"
             )
-    stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", Shared_vars.config.llm_parameters["bsysep"], Shared_vars.config.llm_parameters["esysep"], Shared_vars.config.llm_parameters["beginsep"], Shared_vars.config.llm_parameters["endsep"]]
+    stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", Shared_vars.values.llm_parameters["bsysep"], Shared_vars.values.llm_parameters["esysep"], Shared_vars.values.llm_parameters["beginsep"], Shared_vars.values.llm_parameters["endsep"]]
     if not MISTRAL:
         payload = {
             "prompt": prompt,
