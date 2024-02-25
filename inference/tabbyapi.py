@@ -11,9 +11,11 @@ class TabbyAPI:
         self.tabby_api = config.backend == "tabbyapi"
         self.backend_config = config.backend_config
         if self.tabby_api:
-            self.backend_config.api_endpoint_uri += "v1/completions"
+            self.api_endpoint_uri = self.backend_config.api_endpoint_uri + "v1/completions"
+            self.tokenizer_endpoint_uri = self.backend_config.api_endpoint_uri + "v1/token/encode"
         else:
-            self.backend_config.api_endpoint_uri += "completion"
+            self.api_endpoint_uri = self.backend_config.api_endpoint_uri + "completion"
+            self.tokenizer_endpoint_uri = self.backend_config.api_endpoint_uri + "tokenize"
 
         if self.compat:
             from transformers import AutoTokenizer
@@ -36,7 +38,7 @@ class TabbyAPI:
                     "text": text,
                 }
                 request = requests.post(
-                    self.backend_config.api_endpoint_uri.replace("completions", "token/encode"),
+                    self.tokenizer_endpoint_uri,
                     headers={
                         "Accept": "application/json",
                         "Content-Type": "application/json",
@@ -49,7 +51,7 @@ class TabbyAPI:
             else:
                 payload = {"content": text}
                 request = requests.post(
-                    self.backend_config.api_endpoint_uri.replace("completion", "tokenize"),
+                    self.tokenizer_endpoint_uri,
                     json=payload,
                     timeout=360,
                 )
@@ -142,7 +144,7 @@ class TabbyAPI:
             payload["min_temp"] = min_temp
             payload["max_temp"] = max_temp
         request = requests.post(
-            self.backend_config.api_endpoint_uri,
+            self.api_endpoint_uri ,
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",

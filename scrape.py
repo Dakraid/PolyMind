@@ -4,15 +4,15 @@ import Config
 from PyPDF2 import PdfReader
 import io
 from trafilatura import extract
-if Shared_vars.values.compat:
+if Config.values.compat:
     from transformers import AutoTokenizer
-    tokenizer = AutoTokenizer.from_pretrained(Shared_vars.values.token_model)
-API_ENDPOINT_URI = Shared_vars.api_endpoint_uri
+    tokenizer = AutoTokenizer.from_pretrained(Config.values.token_model)
+API_ENDPOINT_URI = Config.values.backend_config.api_endpoint_uri
 
-if Shared_vars.TABBY:
-    API_ENDPOINT_URI += "v1/completions"
-else:
-    API_ENDPOINT_URI += "completion"
+#if Config.values.backend == "tabbyapi":
+#    API_ENDPOINT_URI += "v1/completions"
+#else:
+#    API_ENDPOINT_URI += "completion"
 
 
 def get_pdf_from_url(url):
@@ -27,7 +27,7 @@ def get_pdf_from_url(url):
 
 
 def tokenize(input):
-    if Shared_vars.values.compat:
+    if Config.values.compat:
         encoded_input = tokenizer.encode(input, return_tensors=None)
         return len(encoded_input), encoded_input
     else:
@@ -39,20 +39,20 @@ def tokenize(input):
             "content": input,
         }
         request = requests.post(
-            API_ENDPOINT_URI.replace("completions", "token/encode") if Shared_vars.TABBY else API_ENDPOINT_URI.replace("completion", "tokenize"),
+            Config.values.backend_config.api_endpoint_uri.replace("completions", "token/encode") if Config.values.backend == "tabbyapi" else Config.values.backend_config.api_endpoint_uri.replace("completion", "tokenize"),
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {Shared_vars.API_KEY}",
+                "Authorization": f"Bearer {Config.values.backend_config.api_key}",
             },
             json=payload,
             timeout=360,
         )
-        return request.json()["length"] if Shared_vars.TABBY else len(request.json()["tokens"]), request.json()["tokens"]
+        return request.json()["length"] if Config.values.backend == "tabbyapi" else len(request.json()["tokens"]), request.json()["tokens"]
 
 
 def decode(input):
-    if Shared_vars.config.compat:
+    if Config.values.compat:
         decoded_text = tokenizer.decode(input, skip_special_tokens=True)
         return decoded_text
     else:
@@ -63,16 +63,18 @@ def decode(input):
             "tokens": input,
         }
         request = requests.post(
-            API_ENDPOINT_URI.replace("completions", "token/decode") if Shared_vars.TABBY else API_ENDPOINT_URI.replace("completion", "detokenize"),
+            Config.values.backend_config.api_endpoint_uri.replace("completions", "token/decode") if
+            Config.values.backend == "tabbyapi"
+            else Config.values.backend_config.api_endpoint_uri.replace("completion", "detokenize"),
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {Shared_vars.API_KEY}",
+                "Authorization": f"Bearer {Config.values.backend_config.api_key}",
             },
             json=payload,
             timeout=360,
         )
-        return request.json()["text"] if Shared_vars.TABBY else request.json()["content"]
+        return request.json()["text"] if Config.values.backend == "tabbyapi" else request.json()["content"]
 
 
 def shorten_text(text, max_tokens):

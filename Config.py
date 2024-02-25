@@ -63,14 +63,10 @@ class TabbyApi:
             host.rstrip("/")
             if host.endswith("/")
             else host)
-        if port == "" or port == 0:
-            self.port = 80 if host.startswith('http://') else 443
-        else:
-            self.port = port
+        self.port = port
         self.api_endpoint_uri = (
-            f"{self.host}:{self.port}/"
-            if self.host.lower().startswith("http")
-            else f"http://{self.host}:{self.port}/"
+            f"{self.host}/" if self.host.lower().startswith("https") else
+            (f"{self.host}:{self.port}/" if self.host.lower().startswith("http") else f"{self.host}:{self.port}/")
         )
 
 
@@ -113,7 +109,7 @@ class Config:
 
         if self.backend == "tabbyapi":
             self.backend_config = TabbyApi(loaded_config["backend_config"]["tabbyapi"]["api_key"],
-                                           loaded_config["backend_config"]["tabbyapi"]["endpoint"],
+                                           loaded_config["backend_config"]["tabbyapi"]["host"],
                                            loaded_config["backend_config"]["tabbyapi"]["port"])
         elif self.backend == "togetherai":
             self.backend_config = TogetherAi(loaded_config["backend_config"]["togetherai"]["api_key"],

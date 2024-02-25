@@ -11,17 +11,8 @@ import numpy as np
 import json
 import torch
 from torch import Tensor
-if values.MISTRAL:
-    from transformers import AutoTokenizer, LlamaTokenizerFast
-    tokenizer = AutoTokenizer.from_pretrained(values.values.token_model)
-    from mistralai.client import MistralClient
 
-MISTRAL = values.MISTRAL
-API_KEY = values.API_KEY
-if MISTRAL:
-    client = MistralClient(api_key=API_KEY)
-else:
-    model = AnglE.from_pretrained('WhereIsAI/UAE-Large-V1', pooling_strategy='cls').to("cpu")
+model = AnglE.from_pretrained('WhereIsAI/UAE-Large-V1', pooling_strategy='cls').to("cpu")
 
 path = Path(os.path.abspath(__file__)).parent
 
@@ -163,13 +154,7 @@ def handleFile(file):
             file, values.enabled_features["file_input"]["chunk_size"]
         )
         print("Creating Embeddings")
-        if MISTRAL:
-            embeddings_batch_response = client.embeddings(
-                model="mistral-embed",
-                input=chunks,
-            )
-        else:
-            embeddings = model.encode(chunks, to_numpy=True)
+        embeddings = model.encode(chunks, to_numpy=True)
         with open(
             os.path.join(path, "embeddings_cache", f"{md5sum}.json"), "w", encoding="utf-8"
         ) as f:

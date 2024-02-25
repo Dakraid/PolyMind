@@ -176,7 +176,7 @@ def GateKeep(input, ip, depth=0, stream=False):
             min_p=0.05,
             top_k=40,
             stopstrings=stopstrings,
-            max_tokens=Config.values.llm_parameters['max_new_tokens_gatekeeper'],
+            max_tokens=Config.values.llm_parameters.max_new_tokens_gatekeeper,
             reppenalty=1.0,
             max_temp=0,
             min_temp=0
@@ -410,6 +410,6 @@ def Util(rsp, ip, depth):
         if len(Config.plugin_manifests) > 0:
             for x in Config.plugin_manifests:
                 if rsp["function"] == x['name']:
-                    return Config.loaded_plugins[x['module_name']].main(params, Config.mem, infer, ip,
+                    return Config.loaded_plugins[x['module_name']].main(params, Config.mem, inference.infer, ip,
                                                                         Config)
     return "null"

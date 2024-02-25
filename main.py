@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response
-from GateKeeper import GateKeep, infer
+from GateKeeper import GateKeep
 from Shared import Adapters
 from PIL import Image
 import datetime
@@ -10,7 +10,6 @@ import time
 import json
 import re
 
-
 if Config.values.enabled_features["file_input"]["enabled"]:
     from FileHandler import handleFile
 
@@ -19,12 +18,15 @@ if Config.values.enabled_features["image_input"]["enabled"]:
 
 if Config.values.backend == "tabbyapi":
     from inference.tabbyapi import TabbyAPI
+
     inference = TabbyAPI(Config.values)
 elif Config.values.backend == "togetherai":
     from inference.togetherai import TogetherAI
+
     inference = TogetherAI(Config.values)
 elif Config.values.backend == "mistralai":
     from inference.mistralai import MistralAI
+
     inference = MistralAI(Config.values)
 
 
@@ -76,8 +78,8 @@ def remove_message():
     data = request.get_json()
     index = data.get("index")
     try:
-        del Config.values.vismem[f"{request.remote_addr}"][index]
-        del Config.values.mem[f"{request.remote_addr}"][index]
+        del Config.vismem[f"{request.remote_addr}"][index]
+        del Config.mem[f"{request.remote_addr}"][index]
         return jsonify({"status": "success"}), 200
     except IndexError:
         return jsonify({"status": "error", "message": "Invalid index"}), 400
@@ -89,13 +91,13 @@ def chat():
     global currenttoken
     try:
         chosenfunc[f"{request.remote_addr}"]["ip"] = request.remote_addr
-        test = Config.values.mem[f"{request.remote_addr}"]
-        test = Config.values.vismem[f"{request.remote_addr}"]
+        test = Config.mem[f"{request.remote_addr}"]
+        test = Config.vismem[f"{request.remote_addr}"]
     except KeyError:
         print("initializing memory")
         chosenfunc[f"{request.remote_addr}"] = {"func": "", "ip": ""}
-        Config.values.mem[f"{request.remote_addr}"] = []
-        Config.values.vismem[f"{request.remote_addr}"] = []
+        Config.mem[f"{request.remote_addr}"] = []
+        Config.vismem[f"{request.remote_addr}"] = []
 
     if request.method == "POST":
         if request.form.get("user"):
@@ -133,11 +135,11 @@ def chat():
 
             Kept = re.sub(r"\[<image>.*?<image>\]", "", Kept)
         elif (
-            Kept != "null"
-            and Kept
-            and "skipment" not in Kept
-            and "plotimg" not in Kept
-            and "[<image>" not in Kept
+                Kept != "null"
+                and Kept
+                and "skipment" not in Kept
+                and "plotimg" not in Kept
+                and "[<image>" not in Kept
         ):
             newinp += answers.strip() + "\nSYSTEM: " + Kept
         elif "skipment" in Kept:
@@ -145,7 +147,7 @@ def chat():
                 "func": "",
                 "ip": f"{request.remote_addr}",
                 "token": Kept.split("{<")[1].replace("<", "&lt;").replace(">", "&gt;")
-                + "</s><s>",
+                         + "</s><s>",
             }
             return jsonify(
                 {
@@ -166,33 +168,32 @@ def chat():
         complete = ["", []]
 
         for tok in inference.infer(
-            newinp,
-            system=f"{Config.values.system}\nThe current date is {today}",
-            mem=Config.values.mem[f"{request.remote_addr}"],
-            username=username,
-            modelname="polymind:",
-            max_tokens=Config.values.llm_parameters['max_new_tokens'],
-            temperature=Config.values.llm_parameters["temperature"],
-            top_p=1,
-            min_p=Config.values.llm_parameters["min_p"],
-            stopstrings=[
-                "user:",
-                "polymind:",
-                "[System Message]",
-                "<|im_end|>",
-                "<|im_start|>",
-                "SYSTEM:",
-                '<img src="data:image/jpeg;base64,',
-                '<|endoftext|>',
-                '[FINISHED]',
-                'User:',
-                'Polymind:',
-                '<disclaimer>',
-                '</disclaimer>',
-                'data:image/png;base64,'
-            ],
-            streamresp=True,
-            few_shot=Config.values.llm_parameters['fewshot']
+                newinp,
+                system=f"{Config.values.system}\nThe current date is {today}",
+                mem=Config.mem[f"{request.remote_addr}"],
+                username=username,
+                modelname="polymind:",
+                max_tokens=Config.values.llm_parameters.max_new_tokens,
+                temperature=Config.values.llm_parameters.temperature,
+                top_p=1,
+                min_p=Config.values.llm_parameters.min_p,
+                stopstrings=[
+                    "user:",
+                    "polymind:",
+                    "[System Message]",
+                    "<|im_end|>",
+                    "<|im_start|>",
+                    "SYSTEM:",
+                    '<img src="data:image/jpeg;base64,',
+                    '<|endoftext|>',
+                    '[FINISHED]',
+                    'User:',
+                    'Polymind:',
+                    '<disclaimer>',
+                    '</disclaimer>'
+                ],
+                streamresp=True,
+                few_shot=Config.values.llm_parameters.few_shot
         ):
             if type(tok) != list:
                 complete[0] += tok
@@ -209,10 +210,10 @@ def chat():
                     "func": "",
                     "ip": f"{request.remote_addr}",
                     "token": complete[0]
-                    + "</s><s>",
+                             + "</s><s>",
                 }
-        Config.values.mem[f"{request.remote_addr}"] = complete[1]
-        Config.values.vismem[f"{request.remote_addr}"].append(
+        Config.mem[f"{request.remote_addr}"] = complete[1]
+        Config.vismem[f"{request.remote_addr}"].append(
             {
                 "user": user_input,
                 "assistant": complete[0]
@@ -226,7 +227,7 @@ def chat():
                     "output": complete[0],
                     "base64_image": img,
                     "base64_image_full": oimg,
-                    "index": len(Config.values.vismem[f"{request.remote_addr}"]) - 1,
+                    "index": len(Config.vismem[f"{request.remote_addr}"]) - 1,
                 }
             )
         elif imgstr != "":
@@ -235,14 +236,14 @@ def chat():
                     "output": complete[0],
                     "base64_image": imgstr,
                     "base64_image_full": oimg,
-                    "index": len(Config.values.vismem[f"{request.remote_addr}"]) - 1,
+                    "index": len(Config.vismem[f"{request.remote_addr}"]) - 1,
                 }
             )
         else:
             return jsonify(
                 {
                     "output": complete[0],
-                    "index": len(Config.values.vismem[f"{request.remote_addr}"]) - 1,
+                    "index": len(Config.vismem[f"{request.remote_addr}"]) - 1,
                 }
             )
     else:
@@ -251,28 +252,28 @@ def chat():
 
 @app.route("/chat_history", methods=["GET"])
 def chat_history():
-    return Config.values.vismem[f"{request.remote_addr}"]
+    return Config.vismem[f"{request.remote_addr}"]
 
 
 @app.route("/upload_file", methods=["POST"])
 def upload_file():
     global chosenfunc
     if request.method == "POST" and (
-        Config.values.enabled_features["image_input"]["enabled"]
-        or Config.values.enabled_features["file_input"]["enabled"]
+            Config.values.enabled_features["image_input"]["enabled"]
+            or Config.values.enabled_features["file_input"]["enabled"]
     ):
-        if not f"{request.remote_addr}" in Config.values.mem or not f"{request.remote_addr}" in Config.values.vismem:
-            Config.values.mem[f"{request.remote_addr}"] = []
-            Config.values.vismem[f"{request.remote_addr}"] = []
+        if not f"{request.remote_addr}" in Config.mem or not f"{request.remote_addr}" in Config.vismem:
+            Config.mem[f"{request.remote_addr}"] = []
+            Config.vismem[f"{request.remote_addr}"] = []
 
         imgstr = ""
         file = request.files["file"]
         file_content = request.form["content"]
         if (
-            ".jpg" in file.filename
-            or ".png" in file.filename
-            or ".jpeg" in file.filename
-            or ".png" in file.filename
+                ".jpg" in file.filename
+                or ".png" in file.filename
+                or ".jpeg" in file.filename
+                or ".png" in file.filename
         ) and Config.values.enabled_features["image_input"]["enabled"]:
             if f"{request.remote_addr}" in chosenfunc:
                 chosenfunc[f"{request.remote_addr}"]["func"] = "procimg"
@@ -283,10 +284,10 @@ def upload_file():
                 }
             result = identify(file_content.split(',')[1])
 
-            Config.values.mem[f"{request.remote_addr}"].append(
-                f"\n{Config.values.llm_parameters['beginsep']} user: {result} {Config.values.llm_parameters['endsep']}"
+            Config.mem[f"{request.remote_addr}"].append(
+                f"\n{Config.values.llm_parameters.begin_sep} user: {result} {Config.values.llm_parameters.end_sep}"
             )
-            Config.values.vismem[f"{request.remote_addr}"].append({"user": result})
+            Config.vismem[f"{request.remote_addr}"].append({"user": result})
             return jsonify(
                 {
                     "base64_image": create_thumbnail(
@@ -305,8 +306,8 @@ def upload_file():
             chunks = handleFile(file_content)
             if len(chunks) <= 1:
                 Config.values.loaded_file[f"{request.remote_addr}"] = {}
-                Config.values.mem[f"{request.remote_addr}"].append(
-                    f"\n{Config.values.llm_parameters['beginsep']} user: <FILE {file.filename}> {chunks[0]} {Config.values.llm_parameters['endsep']}"
+                Config.mem[f"{request.remote_addr}"].append(
+                    f"\n{Config.values.llm_parameters.begin_sep} user: <FILE {file.filename}> {chunks[0]} {Config.values.llm_parameters.end_sep}"
                 )
             else:
                 Config.values.loaded_file[f"{request.remote_addr}"] = chunks
@@ -317,6 +318,7 @@ def upload_file():
 
 if __name__ == "__main__":
     port = 5000
-    if Config.values.port == port:
-        port = 8750
+    # ToDo
+    # if Config.values.backend_config.port == port:
+    #    port = 8750
     app.run(host=Config.values.address, port=port)
