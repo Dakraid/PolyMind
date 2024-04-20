@@ -13,7 +13,7 @@ from Config import blipcache, values
 from transformers import AutoModelForCausalLM, CodeGenTokenizerFast as Tokenizer
 from PIL import Image
 
-if values.enabled_features["image_input"]["backend"] == "moondream":
+if values.features["image_input"]["backend"] == "moondream":
     model_id = "vikhyatk/moondream1"
     model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
     tokenizer = Tokenizer.from_pretrained(model_id)
@@ -31,7 +31,7 @@ def llamacpp_img(raw_image):
     content = ""
 
     # Define the API endpoint URL
-    url = values.enabled_features["image_input"]["URI"]
+    url = values.features["image_input"]["URI"]
 
     # Define the prompt
     prompt = "[img-0]"
@@ -150,7 +150,7 @@ def identify(input):
     if sha in blipcache:
         out = blipcache[sha]
     else:
-        if values.enabled_features["image_input"]["backend"] != "moondream":
+        if values.features["image_input"]["backend"] != "moondream":
             out = llamacpp_img(raw_image)
             print(out)
         else:

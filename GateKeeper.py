@@ -4,26 +4,23 @@ import re
 import html
 import time
 import wolframalpha
-from duckduckgo_search import DDGS
 import nmap
 import datetime
 import subprocess
 import Config
-from comfyui import imagegen
-from scrape import scrape_site
-
-if Config.values.enabled_features["file_input"]["enabled"]:
-    from FileHandler import queryEmbeddings
 import requests
+
+from duckduckgo_search import DDGS
 from PIL import Image
 from io import BytesIO
 from pathlib import Path
 
-path = Path(os.path.abspath(__file__)).parent
-func = ""
-client = wolframalpha.Client(
-    Config.values.enabled_features["wolframalpha"]["app_id"]
-)
+if Config.values.features["imagegeneration"]["enabled"]:
+    from comfyui import imagegen
+if Config.values.features["internetsearch"]["enabled"]:
+    from scrape import scrape_site
+if Config.values.features["file_input"]["enabled"]:
+    from FileHandler import queryEmbeddings
 
 if Config.values.backend == "tabbyapi":
     from inference.tabbyapi import TabbyAPI
@@ -34,6 +31,12 @@ elif Config.values.backend == "togetherai":
 elif Config.values.backend == "mistralai":
     from inference.mistralai import MistralAI
     inference = MistralAI(Config.values)
+
+path = Path(os.path.abspath(__file__)).parent
+func = ""
+client = wolframalpha.Client(
+    Config.values.features["wolframalpha"]["app_id"]
+)
 
 with open(os.path.join(path, "functions.json")) as user_file:
     global searchfunc
@@ -55,9 +58,9 @@ with open(os.path.join(path, "functions.json")) as user_file:
             continue
         else:
             try:
-                if x['name'] == 'generateimage' and not Config.values.enabled_features['imagegeneration']['enabled']:
+                if x['name'] == 'generateimage' and not Config.values.features['imagegeneration']['enabled']:
                     continue
-                if not Config.values.enabled_features[x['name']]['enabled']:
+                if not Config.values.features[x['name']]['enabled']:
                     continue
             except KeyError:
                 pass
@@ -205,7 +208,7 @@ def GateKeep(input, ip, depth=0, stream=False):
 
             if (
                     x["function"] == "searchfile"
-                    and Config.values.enabled_features["file_input"]["raw_input"]
+                    and Config.values.features["file_input"]["raw_input"]
             ):
                 if "params" in x:
                     x["params"]["query"] = input
@@ -261,15 +264,15 @@ def Util(rsp, ip, depth):
         if ip != Config.values.adminip:
             return "null"
         check = False if params["option"].split(":")[1].lower() == "false" else True
-        Config.values.enabled_features[params["option"].split(":")[0]][
+        Config.values.features[params["option"].split(":")[0]][
             "enabled"
         ] = check
-        result = f"{params['option'].split(':')[0]} is now set to {Config.values.enabled_features[params['option'].split(':')[0]]['enabled']}"
+        result = f"{params['option'].split(':')[0]} is now set to {Config.values.features[params['option'].split(':')[0]]['enabled']}"
         print(result)
         return result
 
     elif rsp["function"] == "wolframalpha":
-        if not Config.values.enabled_features["wolframalpha"]["enabled"]:
+        if not Config.values.features["wolframalpha"]["enabled"]:
             return "Wolfram Alpha is currently disabled."
         try:
             res = client.query(params["query"])
@@ -301,10 +304,10 @@ def Util(rsp, ip, depth):
             return "Wolfram Alpha Error: " + str(e)
 
     elif rsp["function"] == "generateimage":
-        if not Config.values.enabled_features["imagegeneration"]["enabled"]:
+        if not Config.values.features["imagegeneration"]["enabled"]:
             return "Image generation is currently disabled."
         removebg = False
-        if Config.values.enabled_features["imagegeneration"][
+        if Config.values.features["imagegeneration"][
             "automatic_background_removal"] and "removebg" in params:
             if type(params['removebg']) == str:
                 if params['removebg'].lower() == 'true':
@@ -331,7 +334,7 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "runpythoncode":
-        if not Config.values.enabled_features["runpythoncode"]["enabled"]:
+        if not Config.values.features["runpythoncode"]["enabled"]:
             return "Python code execution is currently disabled."
         if ip != Config.values.adminip:
             return "null"
@@ -360,7 +363,7 @@ def Util(rsp, ip, depth):
             stderr = ""
         if (
                 stderr != ""
-                and depth < Config.values.enabled_features["runpythoncode"]["depth"]
+                and depth < Config.values.features["runpythoncode"]["depth"]
         ):
             print(f"Current depth: {depth}")
             return next(
@@ -385,7 +388,7 @@ def Util(rsp, ip, depth):
         return result
 
     elif rsp["function"] == "internetsearch":
-        if not Config.values.enabled_features["internetsearch"]["enabled"]:
+        if not Config.values.features["internetsearch"]["enabled"]:
             return "Internet search is currently disabled."
         with DDGS() as ddgs:
             for r in ddgs.text(params["keywords"], safesearch="Off", max_results=4):

@@ -20,7 +20,7 @@ from pathlib import Path
 from prompts import getsdprompts
 
 client_id = str(uuid.uuid4())
-if Config.values.enabled_features["imagegeneration"]["automatic_background_removal"]:
+if Config.values.features["imagegeneration"]["automatic_background_removal"]:
     from transformers import pipeline
 
     pipe = pipeline("image-segmentation", model="briaai/RMBG-1.4",revision ="refs/pr/9", trust_remote_code=True, )
@@ -28,7 +28,7 @@ if Config.values.enabled_features["imagegeneration"]["automatic_background_remov
 with open(
     os.path.join(
         Path(os.path.abspath(__file__)).parent,
-        Config.values.enabled_features["imagegeneration"]["comfyui_workflow"],
+        Config.values.features["imagegeneration"]["comfyui_workflow"],
     )
 ) as workflow:
     prompt_text = json.load(workflow)
@@ -186,7 +186,7 @@ def imagegen(msg, removebg = False, imgtoimg = ""):
     res = aspect2res(tosend)
     x = generate(
         tosend,
-        Config.values.enabled_features["imagegeneration"]["server_address"],
+        Config.values.features["imagegeneration"]["server_address"],
         width=res[0],
         height=res[1],
         imgtoimg=imgtoimg,

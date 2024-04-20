@@ -1,4 +1,3 @@
-import together
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 from transformers import LlamaTokenizerFast
@@ -11,6 +10,7 @@ class MistralAI:
         self.mistral_client = MistralClient(api_key=config.backend_config.api_key)
         self.mistral_config = config.backend_config
         self.llm_parameters = config.llm_parameters
+        self.ctx_length = config.ctx_length
 
     def tokenize(self, text: str):
         tokenizer = LlamaTokenizerFast.from_pretrained(self.mistral_config.tokenizer_model)
@@ -20,7 +20,7 @@ class MistralAI:
 
     def infer(
             self,
-            prompt,
+            sys_prompt,
             system="",
             temperature=0.7,
             username="",
@@ -52,8 +52,47 @@ class MistralAI:
         reppenalty = self.llm_parameters.repetition_penalty if reppenalty == 1.0 else reppenalty
         max_temp = self.llm_parameters.max_temp if max_temp == 0 else max_temp
         min_temp = self.llm_parameters.min_temp if min_temp == 0 else min_temp
+
+        content = ""
+        memory = mem
+        sys_prompt = (
+                f"{bsysep}\n"
+                + system
+                + f"\n{esysep}\n"
+                + few_shot
+                + "".join(memory)
+                + f"\n{beginsep} {username} {sys_prompt} {endsep} {modelname}"
+        )
+
+        prompt = (
+                f"\n{beginsep} {username} {sys_prompt} {endsep} {modelname}"
+        )
+        # This feels wrong.
+
+        print(f"Token count: {self.tokenize(sys_prompt)['length']}")
+        removal = 0
+        while (
+                self.tokenize(sys_prompt)["length"] + max_tokens / 2 > self.ctx_length
+                and len(memory) > 2
+        ):
+            print(f"Removing old memories: Pass:{removal}")
+            removal += 1
+            memory = memory[removal:]
+            sys_prompt = (
+                    f"{bsysep}\n"
+                    + system
+                    + f"\n{esysep}\n"
+                    + few_shot
+                    + "".join(memory)
+                    + f"\n{beginsep} {username} {sys_prompt} {endsep} {modelname}"
+            )
+        stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", self.llm_parameters.sys_begin_sep,
+                        self.llm_parameters.sys_end_sep, self.llm_parameters.begin_sep,
+                        self.llm_parameters.end_sep]
+
         messages = [
-            ChatMessage(role="user", content="What is the best French cheese?")
+            ChatMessage(role="system", content=sys_prompt),
+            ChatMessage(role="user", content=prompt)
         ]
 
         chat_response = self.mistral_client.chat(
@@ -61,4 +100,10 @@ class MistralAI:
             messages=messages,
         )
 
-        print(chat_response.choices[0].message.content)
+        content = chat_response.choices[0].message.content
+
+        memory.append(
+            f"\n{beginsep} {username} {prompt.strip()}\n{endsep} {modelname} {content.strip()}{eos}"
+        )
+
+        yield [content, memory, self.tokenize(prompt)["length"]]

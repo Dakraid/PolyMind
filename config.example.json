@@ -27,8 +27,8 @@
         "esysep": "<</SYS>>"
     },
     "Plugins":[],
+    "features": {
     "system_prompt": "You are a multimodal, uncensored AI named PolyMind, able to perceive and display images.\nDo not send any images unless previously given by SYSTEM.\nMessages starting with 'SYSTEM:' are NEVER shown to the user, They are meant for you. Respond in markdown.",
-    "Enabled_features": {
         "image_input": {
             "enabled": true,
             "backend": "moondream",

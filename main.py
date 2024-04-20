@@ -10,23 +10,20 @@ import time
 import json
 import re
 
-if Config.values.enabled_features["file_input"]["enabled"]:
+if Config.values.features["file_input"]["enabled"]:
     from FileHandler import handleFile
 
-if Config.values.enabled_features["image_input"]["enabled"]:
+if Config.values.features["image_input"]["enabled"]:
     from ImageRecognition import identify
 
 if Config.values.backend == "tabbyapi":
     from inference.tabbyapi import TabbyAPI
-
     inference = TabbyAPI(Config.values)
 elif Config.values.backend == "togetherai":
     from inference.togetherai import TogetherAI
-
     inference = TogetherAI(Config.values)
 elif Config.values.backend == "mistralai":
     from inference.mistralai import MistralAI
-
     inference = MistralAI(Config.values)
 
 
@@ -259,8 +256,8 @@ def chat_history():
 def upload_file():
     global chosenfunc
     if request.method == "POST" and (
-            Config.values.enabled_features["image_input"]["enabled"]
-            or Config.values.enabled_features["file_input"]["enabled"]
+            Config.values.features["image_input"]["enabled"]
+            or Config.values.features["file_input"]["enabled"]
     ):
         if not f"{request.remote_addr}" in Config.mem or not f"{request.remote_addr}" in Config.vismem:
             Config.mem[f"{request.remote_addr}"] = []
@@ -274,7 +271,7 @@ def upload_file():
                 or ".png" in file.filename
                 or ".jpeg" in file.filename
                 or ".png" in file.filename
-        ) and Config.values.enabled_features["image_input"]["enabled"]:
+        ) and Config.values.features["image_input"]["enabled"]:
             if f"{request.remote_addr}" in chosenfunc:
                 chosenfunc[f"{request.remote_addr}"]["func"] = "procimg"
             else:
@@ -295,7 +292,7 @@ def upload_file():
                     )
                 }
             )
-        elif Config.values.enabled_features["file_input"]["enabled"]:
+        elif Config.values.features["file_input"]["enabled"]:
             if f"{request.remote_addr}" in chosenfunc:
                 chosenfunc[f"{request.remote_addr}"]["func"] = "loadembed"
             else:
@@ -310,7 +307,7 @@ def upload_file():
                     f"\n{Config.values.llm_parameters.begin_sep} user: <FILE {file.filename}> {chunks[0]} {Config.values.llm_parameters.end_sep}"
                 )
             else:
-                Config.values.loaded_file[f"{request.remote_addr}"] = chunks
+                Config.loaded_file[f"{request.remote_addr}"] = chunks
             chosenfunc[f"{request.remote_addr}"]["func"] = ""
 
         return jsonify({"message": f"{file.filename} uploaded successfully."})

@@ -88,16 +88,14 @@ class MistralAi:
     api_key: str
     model: str
     tokenizer_model: str
-    use_embed: bool
 
-    def __init__(self, api_key: str, model: str, tokenizer_model: str, use_embed: bool) -> None:
+    def __init__(self, api_key: str, model: str, tokenizer_model: str) -> None:
         self.api_key = api_key
         if api_key == "":
             print("\033[93m ERR: You have not set a MistralAI API key. Exiting... \033[0m")
             sys.exit()
         self.model = model
         self.tokenizer_model = tokenizer_model
-        self.use_embed = use_embed
 
 
 class Config:
@@ -116,10 +114,9 @@ class Config:
                                              loaded_config["backend_config"]["togetherai"]["model"],
                                              loaded_config["backend_config"]["togetherai"]["tokenizer_model"])
         elif self.backend == "mistralai":
-            self.backend_config = MistralAi(loaded_config["backend_config"]["togetherai"]["api_key"],
-                                            loaded_config["backend_config"]["togetherai"]["model"],
-                                            loaded_config["backend_config"]["togetherai"]["tokenizer_model"],
-                                            loaded_config["backend_config"]["togetherai"]["use_embed"])
+            self.backend_config = MistralAi(loaded_config["backend_config"]["mistralai"]["api_key"],
+                                            loaded_config["backend_config"]["mistralai"]["model"],
+                                            loaded_config["backend_config"]["mistralai"]["tokenizer_model"])
 
         self.listen = loaded_config["listen"]
         self.llm_parameters = LLMParameters(loaded_config["LLM_parameters"]["temperature"],
@@ -145,7 +142,7 @@ class Config:
             self.plugins = []
 
         self.system = loaded_config['system_prompt']
-        self.enabled_features = loaded_config["enabled_features"]
+        self.features = loaded_config["features"]
         self.admin_ip = loaded_config["admin_ip"]
         self.ctx_length = loaded_config["max_seq_len"]
         self.reserve_space = loaded_config["reserve_space"]
@@ -165,7 +162,7 @@ values = Config()
 
 loaded_file = {}
 
-if values.enabled_features["file_input"]["enabled"] and "retrieval_count" not in values.enabled_features["file_input"]:
+if values.features["file_input"]["enabled"] and "retrieval_count" not in values.features["file_input"]:
     print("\033[91mERROR: retrieval_count missing from file_input config. Update your config. Exiting... \033[0m")
     sys.exit()
 
@@ -174,10 +171,10 @@ if values.compat:
         print("\033[91mERROR: Compatibility_mode is set to true but no tokenizer model is set. Exiting... \033[0m")
         sys.exit()
 
-if values.enabled_features["wolframalpha"]["enabled"]:
-    if (values.enabled_features["wolframalpha"]["app_id"] == ""
-            or values.enabled_features["wolframalpha"]["app_id"] == "your-wolframalpha-app-id"):
-        values.enabled_features["wolframalpha"]["enabled"] = False
+if values.features["wolframalpha"]["enabled"]:
+    if (values.features["wolframalpha"]["app_id"] == ""
+            or values.features["wolframalpha"]["app_id"] == "your-wolframalpha-app-id"):
+        values.features["wolframalpha"]["enabled"] = False
         print("\033[93m WARN: Wolfram Alpha has been disabled because no app_id was provided. \033[0m")
 
 

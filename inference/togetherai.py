@@ -1,7 +1,10 @@
 import together
+import json
+import random
+import Config
+import requests
+import traceback
 from transformers import LlamaTokenizerFast
-
-from Config import Config
 
 
 class TogetherAI:
@@ -10,6 +13,7 @@ class TogetherAI:
         self.together_client.api_key = config.backend_config.api_key
         self.together_config = config.backend_config
         self.llm_parameters = config.llm_parameters
+        self.ctx_length = config.ctx_length
 
     def tokenize(self, text: str):
         tokenizer = LlamaTokenizerFast.from_pretrained(self.together_config.tokenizer_model)
@@ -51,5 +55,48 @@ class TogetherAI:
         reppenalty = self.llm_parameters.repetition_penalty if reppenalty == 1.0 else reppenalty
         max_temp = self.llm_parameters.max_temp if max_temp == 0 else max_temp
         min_temp = self.llm_parameters.min_temp if min_temp == 0 else min_temp
-        self.together_client.Complete.create(prompt, self.together_config.model, max_tokens, stopstrings, temperature,
-                                             top_p, top_k, reppenalty)
+
+        content = ""
+        memory = mem
+        prompt = (
+                f"{bsysep}\n"
+                + system
+                + f"\n{esysep}\n"
+                + few_shot
+                + "".join(memory)
+                + f"\n{beginsep} {username} {prompt} {endsep} {modelname}"
+        )
+        # This feels wrong.
+
+        print(f"Token count: {self.tokenize(prompt)['length']}")
+        removal = 0
+        while (
+                self.tokenize(prompt)["length"] + max_tokens / 2 > self.ctx_length
+                and len(memory) > 2
+        ):
+            print(f"Removing old memories: Pass:{removal}")
+            removal += 1
+            memory = memory[removal:]
+            prompt = (
+                    f"{bsysep}\n"
+                    + system
+                    + f"\n{esysep}\n"
+                    + few_shot
+                    + "".join(memory)
+                    + f"\n{beginsep} {username} {prompt} {endsep} {modelname}"
+            )
+        stopstrings += ["</s>", "<</SYS>>", "[Inst]", "[/INST]", self.llm_parameters.sys_begin_sep,
+                        self.llm_parameters.sys_end_sep, self.llm_parameters.begin_sep,
+                        self.llm_parameters.end_sep]
+
+        response = self.together_client.Complete.create(prompt, self.together_config.model, max_tokens,
+                                                        stopstrings, temperature, top_p, top_k,
+                                                        reppenalty)
+
+        content += response['output']['choices'][0]['text']
+
+        memory.append(
+            f"\n{beginsep} {username} {prompt.strip()}\n{endsep} {modelname} {content.strip()}{eos}"
+        )
+
+        yield [content, memory, self.tokenize(prompt)["length"]]

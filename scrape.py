@@ -7,7 +7,7 @@ from trafilatura import extract
 if Config.values.compat:
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(Config.values.token_model)
-API_ENDPOINT_URI = Config.values.backend_config.api_endpoint_uri
+#API_ENDPOINT_URI = Config.values.backend_config.api_endpoint_uri
 
 #if Config.values.backend == "tabbyapi":
 #    API_ENDPOINT_URI += "v1/completions"
