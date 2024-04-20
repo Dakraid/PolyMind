@@ -36,7 +36,7 @@ with open(
 with open(
     os.path.join(
         Path(os.path.abspath(__file__)).parent,
-        Shared_vars.config.enabled_features["imagegeneration"]["comfyui_workflow"].replace(".json", "_imgtoimg.json"),
+        Config.values.features["imagegeneration"]["comfyui_workflow"].replace(".json", "_imgtoimg.json"),
     )
 ) as workflow:
     prompt_text_imgtoimg = json.load(workflow)
@@ -101,7 +101,7 @@ def generate(prmpt, server_address, seed=0, width=1024, height=1024, imgtoimg=""
     if imgtoimg == "":
         prompt = prompt_text
         prompt["6"]["inputs"]["text"] = prmpt
-        prompt["4"]["inputs"]["ckpt_name"] = Shared_vars.config.enabled_features[
+        prompt["4"]["inputs"]["ckpt_name"] = Config.values.features[
             "imagegeneration"
         ]["checkpoint_name"]
         if not seed == 0:
@@ -115,7 +115,7 @@ def generate(prmpt, server_address, seed=0, width=1024, height=1024, imgtoimg=""
     else:
         prompt = prompt_text_imgtoimg
         prompt["6"]["inputs"]["text"] = prmpt
-        prompt["4"]["inputs"]["ckpt_name"] = Shared_vars.config.enabled_features[
+        prompt["4"]["inputs"]["ckpt_name"] = Config.values.features[
             "imagegeneration"
         ]["checkpoint_name"]
         if not seed == 0:
@@ -195,7 +195,7 @@ def imagegen(msg, removebg = False, imgtoimg = ""):
     if removebg:
         with open(os.path.join(Path(os.path.abspath(__file__)).parent, "temp.png"), 'wb') as image_file:
             image_file.write(base64.b64decode(x))
-        pipe(os.path.join(Path(os.path.abspath(__file__)).parent, "temp.png"),out_name=os.path.join(Path(os.path.abspath(__file__)).parent, "tempf.png")) 
+        pipe(os.path.join(Path(os.path.abspath(__file__)).parent, "temp.png"),out_name=os.path.join(Path(os.path.abspath(__file__)).parent, "tempf.png"))
         with open(os.path.join(Path(os.path.abspath(__file__)).parent, "tempf.png"), 'rb') as image_file:
             image_bytes = image_file.read()
             x = base64.b64encode(image_bytes).decode('utf-8')
