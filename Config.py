@@ -161,6 +161,7 @@ class Config:
 values = Config()
 
 loaded_file = {}
+uploads = {}
 
 if values.features["file_input"]["enabled"] and "retrieval_count" not in values.features["file_input"]:
     print("\033[91mERROR: retrieval_count missing from file_input config. Update your config. Exiting... \033[0m")

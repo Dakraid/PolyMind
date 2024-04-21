@@ -15,6 +15,7 @@ from torch import Tensor
 
 from embedding.angle import EmbedderAnglE
 from embedding.mistralai import EmbedderMistralAI
+from embedding.nomicai import EmbedderNomicAI
 from embedding.sentencetransformer import EmbedderSentenceTransformer
 
 if values.features["file_input"]["embed_config"]["type"] == "angle":
@@ -24,6 +25,8 @@ elif values.features["file_input"]["embed_config"]["type"] == "sentence_transfor
 elif values.features["file_input"]["embed_config"]["type"] == "api":
     if values.features["file_input"]["embed_config"]["api"]["type"] == "mistralai":
         model = EmbedderMistralAI(Config.values)
+    if values.features["file_input"]["embed_config"]["api"]["type"] == "nomicai":
+        model = EmbedderNomicAI(Config.values)
 
 path = Path(os.path.abspath(__file__)).parent
 

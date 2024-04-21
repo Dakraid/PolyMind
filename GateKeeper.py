@@ -318,9 +318,9 @@ def Util(rsp, ip, depth):
             else:
                 removebg = False
         imgtoimg = ""
-        if Shared_vars.config.enabled_features["imagegeneration"]["img2img"] and "ID" in params:
-            if f'{params["ID"]}' in Shared_vars.uploads:
-                imgtoimg = Shared_vars.uploads[f"{params['ID']}"]
+        if Config.values.features["imagegeneration"]["img2img"] and "ID" in params:
+            if f'{params["ID"]}' in Config.uploads:
+                imgtoimg = Config.uploads[f"{params['ID']}"]
         params["prompt"] = ''.join([i for i in params["prompt"] if not i.isdigit()])
         return imagegen(params["prompt"], removebg, imgtoimg)
 
